@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UHRK Flight Monitor</title>
+  <link rel="stylesheet" href="styles.css?v=20260430-2">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div>
+        <h1>UHRK Flight Monitor</h1>
+        <p class="subtitle">Ground Station Dashboard</p>
+      </div>
+      <div class="header-actions">
+        <button type="button" id="settings-toggle" class="icon-button" aria-label="Open settings" aria-expanded="false">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <button type="button" id="theme-toggle" class="theme-toggle" aria-pressed="false">Light</button>
+      </div>
+    </div>
+  </header>
+
+  <nav id="stage-tabs" aria-label="Dashboard view selector">
+    <button type="button" data-view="general" class="tab active">General</button>
+    <button type="button" data-view="0" class="tab">Booster</button>
+    <button type="button" data-view="1" class="tab">Sustainer</button>
+    <button type="button" data-view="2" class="tab">Payload</button>
+  </nav>
+
+  <main id="dashboard">
+    <section class="primary-panel">
+      <div id="view-content"></div>
+      <section class="charts" aria-label="Telemetry charts">
+        <div class="chart-wrapper">
+          <h2>Relative altitude (m)</h2>
+          <canvas id="alt-chart" aria-label="Altitude history" role="img"></canvas>
+        </div>
+        <div class="chart-wrapper">
+          <h2>Velocity (m/s)</h2>
+          <canvas id="velocity-chart" aria-label="Velocity history" role="img"></canvas>
+        </div>
+        <div class="chart-wrapper">
+          <h2>IMU velocity (m/s)</h2>
+          <canvas id="imu-velocity-chart" aria-label="IMU velocity history" role="img"></canvas>
+        </div>
+        <div class="chart-wrapper">
+          <h2>Acceleration (m/s^2)</h2>
+          <canvas id="accel-chart" aria-label="Acceleration history" role="img"></canvas>
+        </div>
+        <div class="chart-wrapper gyro-small">
+          <h2>Gyroscope (deg/s)</h2>
+          <canvas id="gyro-chart" aria-label="Gyroscope history" role="img"></canvas>
+        </div>
+      </section>
+    </section>
+
+    <aside class="side-panel">
+      <section class="ground-info" id="ground-info-panel">
+        <h2>Ground Station</h2>
+        <div class="info"><strong>GPS status:</strong> <span id="gs-gps-status">-</span></div>
+        <div class="info"><strong>Satellites:</strong> <span id="gs-sats">-</span></div>
+        <div class="info"><strong>Position:</strong> <span id="gs-position">-</span></div>
+        <div class="info"><strong>Altitude:</strong> <span id="gs-altitude">-</span> m</div>
+      </section>
+
+      <section class="shutdown-panel" id="shutdown-panel">
+        <h2>System Shutdown</h2>
+        <label class="safety-row">
+          <input type="checkbox" id="shutdown-arm">
+          <span>Arm shutdown controls</span>
+        </label>
+        <label class="confirm-row" for="shutdown-confirm">
+          <span>Type <strong>SHUTDOWN UHRK</strong></span>
+          <input type="text" id="shutdown-confirm" autocomplete="off" spellcheck="false">
+        </label>
+        <div class="shutdown-actions">
+          <button type="button" id="shutdown-test">Test</button>
+          <button type="button" id="shutdown-hold" disabled>Hold 3s</button>
+        </div>
+        <div class="hold-meter" aria-hidden="true"><span id="shutdown-progress"></span></div>
+        <p id="shutdown-status" class="shutdown-status">Not armed</p>
+      </section>
+    </aside>
+  </main>
+
+  <div id="settings-backdrop" class="settings-backdrop" hidden></div>
+  <aside id="settings-drawer" class="settings-drawer" aria-hidden="true" aria-label="Flight settings">
+    <div class="settings-header">
+      <div>
+        <h2>Settings</h2>
+        <p>Flight event and recovery parameters</p>
+      </div>
+      <button type="button" id="settings-close" class="settings-close" aria-label="Close settings">x</button>
+    </div>
+    <div id="settings-content" class="settings-content"></div>
+    <div class="settings-footer">
+      <button type="button" id="settings-reset">Reset</button>
+      <button type="button" id="settings-save">Save</button>
+    </div>
+    <p id="settings-status" class="settings-status"></p>
+  </aside>
+
+  <footer>
+    <p>UHRK Rocketry Telemetry</p>
+  </footer>
+  <script src="script.js?v=20260430-5"></script>
+</body>
+</html>

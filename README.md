@@ -1,0 +1,37 @@
+# UHRK Telemetry Project
+
+Ground-station and node-side code for the UHRK rocket telemetry setup.
+
+## Project Layout
+
+- `remote/uhrkgc/uhrk_site/` - ground-station backend and web dashboard
+- `remote/uhrkboo/zenith_node/` - telemetry node code
+- `remote/systemd/` - service files used on the Raspberry Pis
+- `remote/scripts/` - helper scripts for GPS checks
+
+## Working From Another PC
+
+Clone the repository, then open the cloned folder in Codex:
+
+```powershell
+git clone https://github.com/WilliamB75/M26-Testy-Test.git
+cd M26-Testy-Test
+```
+
+Pi passwords, private keys, and live flight logs are intentionally not stored in
+this repository. Give Codex the current device access details again on the new
+machine when you want it to deploy or inspect the Pis.
+
+## Current Dashboard
+
+When the ground station is running, the dashboard is served from:
+
+```text
+http://10.42.0.1:8000/
+```
+
+## Notes
+
+The repository stores deployable source snapshots. Runtime files such as
+`telemetry_latest.json`, event settings, altitude zero calibration, and flight
+logs are generated on the Pi and ignored by Git.

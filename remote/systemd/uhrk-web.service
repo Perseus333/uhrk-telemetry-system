@@ -1,0 +1,16 @@
+[Unit]
+Description=UHRK flight monitor web server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=uhrkgc
+WorkingDirectory=/home/uhrkgc/uhrk_site
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m http.server 8000 --bind 0.0.0.0
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

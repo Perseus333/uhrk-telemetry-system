@@ -1,0 +1,16 @@
+[Unit]
+Description=UHRK booster telemetry node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=uhrkboo
+WorkingDirectory=/home/uhrkboo
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/uhrkboo/env/bin/python -m zenith_node.main
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+
+# Local environment and editor state
+.env
+.venv/
+venv/
+.vscode/
+.idea/
+
+# Runtime telemetry and generated state
+telemetry_latest.json
+event_settings.json
+altitude_zero.json
+flight_logs/
+*.log
+

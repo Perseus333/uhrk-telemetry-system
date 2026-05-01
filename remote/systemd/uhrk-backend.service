@@ -1,0 +1,17 @@
+[Unit]
+Description=UHRK SX1303 telemetry backend
+After=network-online.target
+Wants=network-online.target
+Conflicts=chirpstack-gateway-bridge.service
+
+[Service]
+Type=simple
+User=uhrkgc
+WorkingDirectory=/home/uhrkgc/uhrk_site
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/uhrkgc/uhrk_site/uhrk_backend.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
