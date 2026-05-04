@@ -967,10 +967,10 @@
     shutdownConfirmEl.addEventListener('input', () => updateShutdownControls());
     shutdownTestEl.addEventListener('click', async () => {
       try {
-        updateShutdownControls('Testing shutdown path...');
+        updateShutdownControls('Testing LoRa shutdown path...');
         const result = await sendShutdownRequest(true, SHUTDOWN_HOLD_MS);
-        const nodeCount = Array.isArray(result.nodes) ? result.nodes.length : 0;
-        updateShutdownControls('Dry-run OK. Node replies: ' + nodeCount + '. GC log: ' + result.gcLogPath);
+        const attempts = result.command && Array.isArray(result.command.attempts) ? result.command.attempts.length : 0;
+        updateShutdownControls('Dry-run LoRa command sent. Attempts: ' + attempts + '. GC log: ' + result.gcLogPath);
       } catch (err) {
         updateShutdownControls('Test failed: ' + err.message);
       }
@@ -999,7 +999,7 @@
       }, 50);
       holdTimer = setTimeout(async () => {
         try {
-          shutdownStatusEl.textContent = 'Shutdown command sent. Saving logs and powering down.';
+          shutdownStatusEl.textContent = 'LoRa shutdown command sent. Saving logs and powering down.';
           await sendShutdownRequest(false, Date.now() - holdStarted);
         } catch (err) {
           clearHold('Shutdown failed: ' + err.message);

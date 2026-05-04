@@ -83,6 +83,7 @@ PACKET_LEN = struct.calcsize(PACKET_FORMAT)
 COMMAND_MAGIC = b"UHRKC1"
 COMMAND_FORMAT = ">6sBBBH"
 COMMAND_PAD_STATE = 1
+COMMAND_SHUTDOWN = 2
 COMMAND_BROADCAST_DEVICE = 0xFF
 DOWNLINK_FREQ_MHZ = float(os.environ.get("UHRK_LORA_DOWNLINK_FREQ_MHZ", "868.1"))
 DOWNLINK_POWER_DBM = int(os.environ.get("UHRK_LORA_DOWNLINK_POWER_DBM", "14"))
@@ -337,8 +338,7 @@ class LoRaDownlink:
                 "lastCommand": copy.deepcopy(self._last_command),
             }
 
-    def send_pad_state(self, mode: str) -> Dict[str, object]:
-        value = 1 if mode == "launch_ready" else 0
+    def _send_command(self, command_id: int, value: int, label: str, details: Dict[str, object]) -> Dict[str, object]:
         with self._lock:
             if self._sock is None or self._addr is None:
                 return {"ok": False, "transport": "lora", "error": "gateway downlink is not ready yet"}
@@ -349,7 +349,7 @@ class LoRaDownlink:
             self._nonce = (self._nonce + 1) & 0xFFFF
             nonce = self._nonce
 
-        payload = pack_lora_command(COMMAND_BROADCAST_DEVICE, COMMAND_PAD_STATE, value, nonce)
+        payload = pack_lora_command(COMMAND_BROADCAST_DEVICE, command_id, value, nonce)
         txpk = {
             "imme": True,
             "freq": DOWNLINK_FREQ_MHZ,
@@ -379,14 +379,25 @@ class LoRaDownlink:
         result = {
             "ok": any(attempt.get("ok") for attempt in attempts),
             "transport": "lora",
-            "mode": mode,
+            "command": label,
+            "commandId": command_id,
+            "value": value,
             "targetDevice": "broadcast",
             "nonce": nonce,
             "attempts": attempts,
         }
+        result.update(details)
         with self._lock:
             self._last_command = copy.deepcopy(result)
         return result
+
+    def send_pad_state(self, mode: str) -> Dict[str, object]:
+        value = 1 if mode == "launch_ready" else 0
+        return self._send_command(COMMAND_PAD_STATE, value, "pad_state", {"mode": mode})
+
+    def send_shutdown(self, dry_run: bool) -> Dict[str, object]:
+        value = 0 if dry_run else 1
+        return self._send_command(COMMAND_SHUTDOWN, value, "shutdown", {"dryRun": dry_run})
 
 
 @dataclass
@@ -1391,7 +1402,7 @@ def start_control_server(
                 "confirmationPhrase": SHUTDOWN_PHRASE,
                 "holdMsRequired": 3000,
                 "gcLogPath": str(flight_log.path),
-                "nodeControlUrls": NODE_CONTROL_URLS,
+                "nodeShutdownTransport": "lora",
                 "padStateTransport": "lora",
                 "downlink": downlink.snapshot(),
                 "groundStation": ground_station,
@@ -1551,15 +1562,17 @@ def start_control_server(
                 "groundStation": dict(ground_station),
                 "stages": [stages[dev_id].to_dict(time.monotonic()) for dev_id in sorted(stages)],
             })
-            node_results = [request_node_shutdown(url, dry_run) for url in NODE_CONTROL_URLS]
+            shutdown_command = downlink.send_shutdown(dry_run)
             response = {
-                "ok": all(result.get("ok") for result in node_results) if node_results else True,
+                "ok": bool(shutdown_command.get("ok")),
                 "dryRun": dry_run,
                 "gcLogPath": str(flight_log.path),
-                "nodes": node_results,
-                "gcShutdownScheduled": not dry_run,
+                "transport": "lora",
+                "command": shutdown_command,
+                "downlink": downlink.snapshot(),
+                "gcShutdownScheduled": bool(shutdown_command.get("ok")) and not dry_run,
             }
-            if not dry_run:
+            if shutdown_command.get("ok") and not dry_run:
                 flight_log.append("shutdown_commit", response)
                 run_shutdown_after_delay(8.0)
             self._send_json(200, response)

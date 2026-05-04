@@ -52,6 +52,7 @@ COMMAND_MAGIC = b"UHRKC1"
 COMMAND_FORMAT = ">6sBBBH"
 COMMAND_LEN = struct.calcsize(COMMAND_FORMAT) + 2
 COMMAND_PAD_STATE = 1
+COMMAND_SHUTDOWN = 2
 COMMAND_BROADCAST_DEVICE = 0xFF
 
 
@@ -90,23 +91,48 @@ def handle_lora_command(
     command: dict[str, int],
     pad_state: "PadState",
     flight_log: FlightLogger,
+    stop_event: threading.Event,
 ) -> bool:
-    if command["commandId"] != COMMAND_PAD_STATE:
-        return False
-    if command["value"] == 0:
-        mode = PAD_IDLE
-    elif command["value"] == 1:
-        mode = PAD_LAUNCH_READY
-    else:
-        return False
-    pad_state.set_mode(mode)
-    flight_log.append("lora_command", {
-        "command": "pad_state",
-        "mode": mode,
-        "target": command["target"],
-        "nonce": command["nonce"],
-    })
-    return True
+    if command["commandId"] == COMMAND_PAD_STATE:
+        if command["value"] == 0:
+            mode = PAD_IDLE
+        elif command["value"] == 1:
+            mode = PAD_LAUNCH_READY
+        else:
+            return False
+        pad_state.set_mode(mode)
+        flight_log.append("lora_command", {
+            "command": "pad_state",
+            "mode": mode,
+            "target": command["target"],
+            "nonce": command["nonce"],
+        })
+        return True
+    if command["commandId"] == COMMAND_SHUTDOWN:
+        if command["value"] not in (0, 1):
+            return False
+        dry_run = command["value"] == 0
+        response = {
+            "command": "shutdown",
+            "dryRun": dry_run,
+            "target": command["target"],
+            "nonce": command["nonce"],
+            "hostname": socket.gethostname(),
+            "logPath": str(flight_log.path),
+            "shutdownScheduled": not dry_run,
+        }
+        flight_log.append("lora_command", response)
+        flight_log.append("shutdown_request", {
+            "dryRun": dry_run,
+            "remote": "lora",
+            "nonce": command["nonce"],
+        })
+        if not dry_run:
+            flight_log.append("shutdown_commit", response)
+            stop_event.set()
+            run_shutdown_after_delay(4.0)
+        return True
+    return False
 
 
 class FlightLogger:
@@ -427,7 +453,7 @@ def main() -> None:
                     continue
                 if command["nonce"] == last_command_nonce:
                     continue
-                if handle_lora_command(command, pad_state, flight_log):
+                if handle_lora_command(command, pad_state, flight_log, stop_event):
                     last_command_nonce = command["nonce"]
     except KeyboardInterrupt:
         # Graceful exit
