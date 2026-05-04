@@ -30,6 +30,11 @@ When the ground station is running, the dashboard is served from:
 http://10.42.0.1:8000/
 ```
 
+## Functionality Reference
+
+The current data logger and ground-station capability summary is maintained in
+[`docs/current-functionality.md`](docs/current-functionality.md).
+
 ## Notes
 
 The repository stores deployable source snapshots. Runtime files such as
