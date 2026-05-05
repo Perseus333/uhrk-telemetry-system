@@ -311,6 +311,10 @@
   }
 
   function initCharts() {
+    if (typeof Chart === 'undefined') {
+      chartsEl.innerHTML = '<div class="chart-error">Chart library failed to load from the ground station.</div>';
+      throw new Error('Chart.js is not available');
+    }
     const baseOptions = () => ({
       responsive: true,
       maintainAspectRatio: false,

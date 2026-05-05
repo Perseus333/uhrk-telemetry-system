@@ -333,6 +333,15 @@ h2 {
   height: 150px !important;
 }
 
+.chart-error {
+  background: var(--card-soft);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  color: var(--text-strong);
+  font-weight: 750;
+  padding: 1rem;
+}
+
 .shutdown-panel {
   border-color: var(--danger);
 }
@@ -625,5 +634,13 @@ footer p {
 
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chart-wrapper canvas {
+    height: 190px !important;
+  }
+
+  .chart-wrapper.gyro-small canvas {
+    height: 130px !important;
   }
 }
