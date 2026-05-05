@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=uhrkgc
-WorkingDirectory=/home/uhrkgc/gateway/sx1302_hal_rpi5-master/packet_forwarder
-ExecStart=/home/uhrkgc/gateway/sx1302_hal_rpi5-master/packet_forwarder/lora_pkt_fwd -c /home/uhrkgc/gateway/sx1302_hal_rpi5-master/packet_forwarder/test_conf.json
+WorkingDirectory=/opt/sx1302_hal/packet_forwarder
+ExecStart=/opt/sx1302_hal/packet_forwarder/lora_pkt_fwd -c /opt/sx1302_hal/packet_forwarder/test_conf.json
 Restart=always
 RestartSec=5
 

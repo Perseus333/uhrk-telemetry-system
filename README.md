@@ -35,6 +35,16 @@ http://10.42.0.1:8000/
 The current data logger and ground-station capability summary is maintained in
 [`docs/current-functionality.md`](docs/current-functionality.md).
 
+## Deployment
+
+Fresh Raspberry Pi install instructions and setup scripts are documented in
+[`docs/deployment.md`](docs/deployment.md).
+
+Install scripts live in `install/`:
+
+- `install/install_node.sh` - install a telemetry node service
+- `install/install_gc.sh` - install the ground-station backend/dashboard
+
 ## Notes
 
 The repository stores deployable source snapshots. Runtime files such as

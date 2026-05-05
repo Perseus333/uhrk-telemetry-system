@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=uhrkgc
-WorkingDirectory=/home/uhrkgc/uhrk_site
+WorkingDirectory=/opt/uhrk/uhrk_site
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 -m http.server 8000 --bind 0.0.0.0
 Restart=always

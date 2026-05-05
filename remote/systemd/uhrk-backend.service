@@ -7,9 +7,10 @@ Conflicts=chirpstack-gateway-bridge.service
 [Service]
 Type=simple
 User=uhrkgc
-WorkingDirectory=/home/uhrkgc/uhrk_site
+WorkingDirectory=/opt/uhrk/uhrk_site
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/usr/bin/python3 /home/uhrkgc/uhrk_site/uhrk_backend.py
+EnvironmentFile=-/etc/uhrk/gc.env
+ExecStart=/usr/bin/python3 /opt/uhrk/uhrk_site/uhrk_backend.py
 Restart=always
 RestartSec=2
 
