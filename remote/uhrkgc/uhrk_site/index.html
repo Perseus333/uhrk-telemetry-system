@@ -6,6 +6,9 @@
   <title>UHRK Flight Monitor</title>
   <link rel="stylesheet" href="styles.css?v=20260505-2">
   <script src="vendor/chart.umd.min.js?v=4.4.0"></script>
+  <link rel="stylesheet" href="vendor/leaflet.css">
+  <script src="vendor/leaflet.min.js"></script>
+  <script type="module" src="vendor/model-viewer.min.js"></script>
 </head>
 <body>
   <header>
@@ -35,6 +38,7 @@
   <main id="dashboard">
     <section class="primary-panel">
       <div id="view-content"></div>
+      <div id="map" style="height: 500px"></div>
       <section class="charts" aria-label="Telemetry charts">
         <div class="chart-wrapper">
           <h2>Relative altitude (m)</h2>
@@ -74,7 +78,13 @@
         <div class="info"><strong>Last update:</strong> <span id="system-updated">-</span></div>
         <div id="system-warnings" class="warning-list"></div>
       </section>
-
+      <model-viewer id="rocket-view" src="3d/models/sustainer.glb"
+        disable-pan
+        disable-zoom
+        disable-tap
+        interaction-prompt="none"
+        shadow-intensity="1">
+      </model-viewer>
       <section class="export-panel" id="export-panel">
         <h2>Data Export</h2>
         <div class="export-actions">
@@ -126,6 +136,8 @@
   <footer>
     <p>UHRK Rocketry Telemetry <span id="footer-version"></span></p>
   </footer>
+  <script src="./map/map.js"></script>
+  <script src="./3d/render.js"></script>
   <script src="script.js?v=20260505-2"></script>
 </body>
 </html>

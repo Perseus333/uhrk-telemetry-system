@@ -46,7 +46,7 @@ OUTPUT_FILE = Path(__file__).resolve().parent / "telemetry_latest.json"
 APP_VERSION = os.environ.get("UHRK_VERSION", "2026.05.05-observability")
 WRITE_INTERVAL_S = 0.5
 OFFLINE_TIMEOUT_S = 10.0
-HISTORY_LENGTH = 50
+HISTORY_LENGTH = 1000
 GROUND_GPS_PORT = os.environ.get("UHRK_GROUND_GPS_PORT", "/dev/ttyAMA0")
 CONTROL_HOST = os.environ.get("UHRK_CONTROL_HOST", "0.0.0.0")
 CONTROL_PORT = int(os.environ.get("UHRK_CONTROL_PORT", "8090"))
@@ -65,8 +65,9 @@ VELOCITY_SMOOTHING_ALPHA = float(os.environ.get("UHRK_VELOCITY_SMOOTHING_ALPHA",
 ALTITUDE_NOISE_DEADBAND_M = float(os.environ.get("UHRK_ALTITUDE_NOISE_DEADBAND_M", "0.35"))
 STATIONARY_VELOCITY_DEADBAND_MPS = float(os.environ.get("UHRK_STATIONARY_VELOCITY_DEADBAND_MPS", "0.35"))
 MAX_BARO_STEP_M = float(os.environ.get("UHRK_MAX_BARO_STEP_M", "25.0"))
-MAX_GPS_STEP_M = float(os.environ.get("UHRK_MAX_GPS_STEP_M", "35.0"))
+MAX_GPS_STEP_M = float(os.environ.get("UHRK_MAX_GPS_STEP_M", "2_000.0"))
 MAX_GPS_ALT_STEP_M = float(os.environ.get("UHRK_MAX_GPS_ALT_STEP_M", "30.0"))
+QUATERNION_SCALE = float(os.environ.get("QUATERNION_SCALE", "10000.0"))
 KALMAN_BARO_VARIANCE_M2 = float(os.environ.get("UHRK_KALMAN_BARO_VARIANCE_M2", "2.25"))
 KALMAN_ACCEL_VARIANCE_MPS2 = float(os.environ.get("UHRK_KALMAN_ACCEL_VARIANCE_MPS2", "4.0"))
 KALMAN_PROCESS_ALTITUDE = float(os.environ.get("UHRK_KALMAN_PROCESS_ALTITUDE", "0.08"))
@@ -80,7 +81,7 @@ PULL_RESP = 0x03
 PULL_ACK = 0x04
 TX_ACK = 0x05
 
-PACKET_FORMAT = ">B H i i i i i B B h h h h h h H"
+PACKET_FORMAT = ">B H i i i i i B B h h h h h h h h h h H"
 PACKET_LEN = struct.calcsize(PACKET_FORMAT)
 COMMAND_MAGIC = b"UHRKC1"
 COMMAND_FORMAT = ">6sBBBH"
@@ -445,6 +446,13 @@ class StageState:
     gx: Optional[float] = None
     gy: Optional[float] = None
     gz: Optional[float] = None
+    qw: Optional[float] = None
+    qx: Optional[float] = None
+    qy: Optional[float] = None
+    qz: Optional[float] = None
+    roll: Optional[float] = None
+    pitch: Optional[float] = None
+    yaw: Optional[float] = None
     rssi: Optional[float] = None
     snr: Optional[float] = None
     frequencyMHz: Optional[float] = None
@@ -798,6 +806,15 @@ class StageState:
         self.gx = float(decoded["gx"])
         self.gy = float(decoded["gy"])
         self.gz = float(decoded["gz"])
+        self.qw = float(decoded.get("qw", 0.0))
+        self.qx = float(decoded.get("qx", 0.0))
+        self.qy = float(decoded.get("qy", 0.0))
+        self.qz = float(decoded.get("qz", 0.0))
+        # Convert to Euler angles for the 3D model
+        roll_deg, pitch_deg, yaw_deg = quat_to_spin_tilt(self.qw, self.qx, self.qy, self.qz)
+        self.roll = roll_deg
+        self.pitch = pitch_deg
+        self.yaw = yaw_deg
         self.rssi = _maybe_float(rx_meta.get("rssi"))
         self.snr = _maybe_float(rx_meta.get("lsnr"))
         self.frequencyMHz = _maybe_float(rx_meta.get("freq"))
@@ -814,6 +831,8 @@ class StageState:
         label = datetime.now(timezone.utc).strftime("%H:%M:%S")
         self.history.append({
             "t": label,
+            "lat": self.lat,
+            "lon": self.lon,
             "gpsAlt": self.gpsAlt,
             "baroAlt": self.baroAlt,
             "imuAlt": self.imuAlt,
@@ -890,6 +909,13 @@ class StageState:
             "gx": self.gx,
             "gy": self.gy,
             "gz": self.gz,
+            "qw": self.qw,
+            "qx": self.qx,
+            "qy": self.qy,
+            "qz": self.qz,
+            "roll": self.roll,
+            "pitch": self.pitch,
+            "yaw": self.yaw,
             "rssi": self.rssi,
             "snr": self.snr,
             "frequencyMHz": self.frequencyMHz,
@@ -941,6 +967,56 @@ def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     dl = math.radians(lon2 - lon1)
     a = math.sin(dp / 2.0) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2.0) ** 2
     return 2.0 * radius_m * math.asin(math.sqrt(a))
+
+
+def quat_to_spin_tilt(qw: float, qx: float, qy: float, qz: float) -> tuple[float, float, float]:
+    """Convert orientation quaternion to (roll, pitch, yaw) in degrees.
+    - roll  : spin around the rocket's longitudinal (body Z) axis.
+    - pitch : tilt angle away from vertical (0 = upright).
+    - yaw   : azimuth of the tilt direction (0 = North, 90 = East).
+    """
+    # Rocket’s body Z axis in world frame
+    vx = 2.0 * (qx * qz - qw * qy)
+    vy = 2.0 * (qy * qz + qw * qx)
+    vz = qw * qw - qx * qx - qy * qy + qz * qz
+
+    # Clamp vz to valid range
+    vz = max(-1.0, min(1.0, vz))
+    tilt_rad = math.acos(vz)          # angle from vertical
+
+    if tilt_rad < 1e-6:
+        # Nearly vertical – pitch = 0, yaw undefined, roll = spin around Z
+        roll_rad = 2.0 * math.atan2(qz, qw)
+        return (math.degrees(roll_rad), 0.0, 0.0)
+
+    # Yaw (azimuth of tilt)
+    yaw_rad = math.atan2(vy, vx)
+
+    # Build the tilt-only quaternion that takes (0,0,1) to (vx,vy,vz)
+    sin_tilt = math.sin(tilt_rad)
+    cos_half = math.cos(tilt_rad * 0.5)
+    # Axis of tilt rotation: cross(Z, v) / sin(tilt)
+    axis_x = -vy / sin_tilt
+    axis_y =  vx / sin_tilt
+    # But we simplify using half-angle identities:
+    # tilt quaternion = (cos_half, sin_half * axis_x, sin_half * axis_y, 0)
+    # Conjugate = (cos_half, -sin_half*axis_x, -sin_half*axis_y, 0)
+    sin_half_over_sin = 1.0 / (2.0 * cos_half)   # sin_half / sin_tilt
+    q_tilt_inv = (cos_half, vy * sin_half_over_sin, -vx * sin_half_over_sin, 0.0)
+
+    # Multiply q_tilt_inv * original quaternion to get the pure spin part
+    w1, x1, y1, z1 = q_tilt_inv
+    w2, x2, y2, z2 = qw, qx, qy, qz
+    q_spin = (
+        w1*w2 - x1*x2 - y1*y2 - z1*z2,
+        w1*x2 + x1*w2 + y1*z2 - z1*y2,
+        w1*y2 - x1*z2 + y1*w2 + z1*x2,
+        w1*z2 + x1*y2 - y1*x2 + z1*w2
+    )
+    # Roll is the rotation around body Z
+    roll_rad = 2.0 * math.atan2(q_spin[3], q_spin[0])
+
+    return (math.degrees(roll_rad), math.degrees(tilt_rad), math.degrees(yaw_rad))
 
 
 def _parse_nmea_datetime(time_field: str, date_field: str) -> Optional[datetime]:
@@ -1165,6 +1241,10 @@ def decode_payload(payload: bytes) -> Optional[Dict[str, object]]:
         gx_i,
         gy_i,
         gz_i,
+        qw_i,
+        qx_i,
+        qy_i,
+        qz_i,
         event_flags,
     ) = fields
     if sats_encoded <= 15:
@@ -1191,6 +1271,10 @@ def decode_payload(payload: bytes) -> Optional[Dict[str, object]]:
         "gx": gx_i / 10.0,
         "gy": gy_i / 10.0,
         "gz": gz_i / 10.0,
+        "qw": qw_i / QUATERNION_SCALE,
+        "qx": qx_i / QUATERNION_SCALE,
+        "qy": qy_i / QUATERNION_SCALE,
+        "qz": qz_i / QUATERNION_SCALE,
         "event_flags": event_flags,
     }
 

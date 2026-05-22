@@ -601,6 +601,12 @@ h2 {
   background: var(--button-hover);
 }
 
+#rocket-view {
+  height: 600px;
+  width: 100%;
+  background: black;
+}
+
 .settings-card-grid {
   grid-template-columns: 1fr;
 }

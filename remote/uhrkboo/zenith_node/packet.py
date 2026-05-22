@@ -9,9 +9,9 @@ station can decode packets consistently.
 
 The packet layout (big‑endian)::
 
-    +-------------+-------+------------------------------+
-    | Offset (B)  | Type  | Field                        |
-    +-------------+-------+------------------------------+
+    +-------------+-------+-----------------------------+
+    | Offset (B)  | Type  | Field                       |
+    +-------------+-------+-----------------------------+
     | 0           | u8    | device_id                   |
     | 1           | u16   | seq                         |
     | 3           | i32   | lat (degrees * 1e7)         |
@@ -28,7 +28,7 @@ The packet layout (big‑endian)::
     | 33          | i16   | gy (deg/s * 10)             |
     | 35          | i16   | gz (deg/s * 10)             |
     | 37          | u16   | event_flags                 |
-    +-------------+-------+------------------------------+
+    +-------------+-------+-----------------------------+
 
 The total packet size is 39 bytes. See :mod:`config` for the
 scaling factors used during packing and unpacking.
