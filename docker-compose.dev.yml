@@ -1,0 +1,97 @@
+# docker-compose.dev.yml
+#
+# Local development stack for the UHRK ground-station.
+# Place this file at the repository root and run:
+#
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Dashboard:   http://localhost:8000
+# Control API: http://localhost:8090/api/health
+#
+# The dummy sender simulates all three rocket stages.
+# Ctrl-C shuts everything down cleanly.
+
+services:
+
+  # ── Ground-station backend ──────────────────────────────────────────────────
+  # Receives Semtech UDP packets on port 1700, decodes UHRK telemetry,
+  # writes telemetry_latest.json, and serves the control/diagnostics API.
+  backend:
+    image: python:3.11-slim
+    working_dir: /app
+    command: python3 uhrk_backend.py
+    volumes:
+      # Bind-mount the site directory so edits to backend code are live.
+      - ./remote/uhrkgc/uhrk_site:/app
+      # Flight logs land in a named volume so they survive container restarts.
+      - flight_logs:/app/flight_logs
+    ports:
+      - "8090:8090"       # Control/diagnostics REST API
+      - "1700:1700/udp"   # Semtech UDP packet-forwarder (exposed for host tools)
+    environment:
+      UHRK_UDP_HOST: "0.0.0.0"
+      UHRK_UDP_PORT: "1700"
+      # No real serial GPS in dev; the reader logs "unavailable" and moves on.
+      UHRK_GROUND_GPS_PORT: "/dev/null"
+      UHRK_CONTROL_HOST: "0.0.0.0"
+      UHRK_CONTROL_PORT: "8090"
+      UHRK_FLIGHT_LOG_DIR: "/app/flight_logs"
+      UHRK_SETTINGS_FILE: "/app/event_settings.json"
+      UHRK_ALTITUDE_ZERO_FILE: "/app/altitude_zero.json"
+      # Disable the WiFi node time-sync calls — no real nodes in dev.
+      UHRK_NODE_TIME_SYNC_URLS: ""
+    networks:
+      - uhrk
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8090/api/version', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 4s
+
+  # ── Static web server ───────────────────────────────────────────────────────
+  # Serves index.html, styles.css, script.js, vendor/chart.umd.min.js, and
+  # (most importantly) the telemetry_latest.json written by the backend.
+  web:
+    image: python:3.11-slim
+    working_dir: /app
+    command: python3 -m http.server 8000 --bind 0.0.0.0
+    volumes:
+      - ./remote/uhrkgc/uhrk_site:/app
+    ports:
+      - "8000:8000"       # Dashboard
+    networks:
+      - uhrk
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ── Dummy telemetry sender ──────────────────────────────────────────────────
+  # Generates realistic sensor data for all three rocket stages and injects
+  # it into the backend via the Semtech UDP packet-forwarder protocol.
+  # Replace with real hardware by simply not starting this service.
+  dummy:
+    image: python:3.11-slim
+    command: >
+      python3 /dummy/dummy_sender.py
+        --host backend
+        --port 1700
+        --interval 1.0
+        --loop-s 140
+    volumes:
+      - ./dev:/dummy:ro
+    networks:
+      - uhrk
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  uhrk:
+    driver: bridge
+
+volumes:
+  flight_logs:
